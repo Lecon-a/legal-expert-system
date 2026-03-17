@@ -317,7 +317,7 @@
 
         /* UPLOAD */
 
-        async function uploadDocument() {
+       async function uploadDocument() {
 
             const input = document.getElementById("documentInput");
 
@@ -327,28 +327,44 @@
             }
 
             const file = input.files[0];
-
             const formData = new FormData();
             formData.append("document", file);
 
-            document.getElementById("uploadStatus").innerText = "Uploading...";
+            const status = document.getElementById("uploadStatus");
 
-            const res = await fetch("/upload", { method: "POST", body: formData });
+            try {
+                status.innerText = "Uploading...";
 
-            const data = await res.json();
+                const res = await fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                });
 
-            document.getElementById("uploadStatus").innerText = data.message;
+                if (!res.ok) {
+                    throw new Error("Server error: " + res.status);
+                }
 
-            document.getElementById("category").innerText = data.category;
-            document.getElementById("confidence").innerText = data.confidence;
-            document.getElementById("reasoning").innerText = data.reasoning;
+                const data = await res.json();
 
-            document.getElementById("classificationResult").style.display = "block";
+                if (!data.success) {
+                    throw new Error(data.message || "Upload failed");
+                }
 
-            startRagProgress();
+                status.innerText = data.message;
 
+                document.getElementById("category").innerText = data.category || "N/A";
+                document.getElementById("confidence").innerText = data.confidence || "N/A";
+                document.getElementById("reasoning").innerText = data.reasoning || "";
+
+                document.getElementById("classificationResult").style.display = "block";
+
+                startRagProgress();
+
+            } catch (err) {
+                console.error(err);
+                status.innerText = "❌ Error: " + err.message;
+            }
         }
-
         /* PROGRESS */
 
         function startRagProgress() {
@@ -414,13 +430,14 @@
             fetch("/ask", { method: "POST", body: formData })
                 .then(res => res.json())
                 .then(data => {
-
                     agent.querySelector(".bubble").innerText = data.answer;
                     agent.querySelector(".reasoning").innerText = "Engine: " + data.engine;
-
                     scrollChat();
-
                 })
+                .catch(err => {
+                    agent.querySelector(".bubble").innerText = "Error getting response.";
+                    agent.querySelector(".reasoning").innerText = err.message;
+                });
 
         }
 

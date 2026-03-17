@@ -1,210 +1,172 @@
-import pdfplumber
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
-from transformers import TextClassificationPipeline
-from collections import defaultdict
+# bert.py
+
 import os
-from dotenv import load_dotenv
+import torch
 
-load_dotenv()
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+torch.set_num_threads(1)
 
-os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN")
-# -----------------------------
-# Models
-# -----------------------------
+import multiprocessing as mp
+mp.set_start_method("spawn", force=True)
 
-# Zero-shot classifier
-bart_classifier = pipeline(
+from transformers import pipeline
+import numpy as np
+import logging
+
+# ------------------------------
+# Load model once
+# ------------------------------
+
+classifier = pipeline(
     "zero-shot-classification",
-    model="facebook/bart-large-mnli"
+    model="facebook/bart-large-mnli",
+    device=-1,
+    framework="pt"
 )
 
-# Legal-BERT cross-check
-legal_model_name = "nlpaueb/legal-bert-base-uncased"
-
-legal_tokenizer = AutoTokenizer.from_pretrained(legal_model_name)
-legal_model = AutoModelForSequenceClassification.from_pretrained(legal_model_name)
-
-legal_classifier = TextClassificationPipeline(
-    model=legal_model,
-    tokenizer=legal_tokenizer
-)
-
-# -----------------------------
-# Legal Categories
-# -----------------------------
-
+# Legal labels (tune as needed)
 LABELS = [
-    "Contract",
-    "Non-Disclosure Agreement",
-    "Loan Agreement",
-    "Rental Agreement",
-    "Employment Agreement",
-    "Partnership Agreement",
-    "Service Agreement",
-    "Lease Agreement",
-    "Sales Agreement",
-    "Memorandum of Understanding",
-    "Legal Notice",
-    "Statute / Law",
-    "Court Filing",
-    "Criminal Law",
-    "Other"
+    "contract",
+    "nda",
+    "loan agreement",
+    "employment agreement",
+    "privacy policy",
+    "terms of service",
+    "court judgment",
+    "statute / law",
+    "legal notice"
 ]
 
-# -----------------------------
-# PDF TEXT EXTRACTION
-# -----------------------------
 
-def extract_text_from_pdf(path):
+# ------------------------------
+# Chunking helper
+# ------------------------------
 
-    text = ""
-
-    with pdfplumber.open(path) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-
-    return text
-
-
-# -----------------------------
-# TEXT CHUNKING
-# -----------------------------
-
-def chunk_text(text, chunk_size=800, overlap=150):
-
+def chunk_text(text, max_words=200):
+    words = text.split()
     chunks = []
 
-    start = 0
-
-    while start < len(text):
-
-        end = start + chunk_size
-
-        chunk = text[start:end]
-
-        chunks.append(chunk)
-
-        start += chunk_size - overlap
+    for i in range(0, len(words), max_words):
+        chunk = " ".join(words[i:i + max_words])
+        if len(chunk.strip()) > 50:
+            chunks.append(chunk)
 
     return chunks
 
 
-# -----------------------------
-# ZERO-SHOT CLASSIFICATION
-# -----------------------------
+# ------------------------------
+# Main classifier
+# ------------------------------
 
-def bart_classify(chunk):
-
-    prompt = f"""
-You are a legal expert.
-
-Classify the following legal document text into the most relevant legal category.
-
-Document:
-{chunk}
-"""
-
-    result = bart_classifier(prompt, LABELS, multi_label=True)
-
-    return dict(zip(result["labels"], result["scores"]))
-
-
-# -----------------------------
-# LEGAL-BERT CROSS-CHECK
-# -----------------------------
-
-def legalbert_check(chunk):
+def classify_document(text):
 
     try:
+        chunks = chunk_text(text)
 
-        result = legal_classifier(chunk[:512])[0]
+        if not chunks:
+            return {
+                "top_predictions": [("Unknown", 0)],
+                "reasoning": "No valid text chunks."
+            }
 
-        return {result["label"]: result["score"]}
+        label_scores = {label: [] for label in LABELS}
 
-    except Exception:
+        # ------------------------------
+        # Run classification per chunk
+        # ------------------------------
 
-        return {}
+        for chunk in chunks[:15]:  # 🚨 limit for speed
 
+            with torch.no_grad():
+                result = classifier(chunk, LABELS)
 
-# -----------------------------
-# SCORE AGGREGATION
-# -----------------------------
+            for label, score in zip(result["labels"], result["scores"]):
+                label_scores[label].append(score)
 
-def aggregate_scores(chunk_scores):
+        # ------------------------------
+        # Aggregate scores (MEAN + SUPPORT)
+        # ------------------------------
 
-    scores = defaultdict(float)
+        aggregated = {}
 
-    for chunk in chunk_scores:
+        for label, scores in label_scores.items():
 
-        for label, score in chunk.items():
+            if not scores:
+                continue
 
-            scores[label] += score
+            mean_score = np.mean(scores)
+            support = len(scores) / len(chunks)
 
-    return scores
+            # Weighted score
+            final_score = mean_score * (0.7 + 0.3 * support)
 
+            aggregated[label] = float(final_score)
 
-# -----------------------------
-# MAIN CLASSIFICATION FUNCTION
-# -----------------------------
+        # ------------------------------
+        # Sort predictions
+        # ------------------------------
 
-def classify_document(pdf_path):
+        sorted_preds = sorted(
+            aggregated.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
 
-    text = extract_text_from_pdf(pdf_path)
+        top_label, top_score = sorted_preds[0]
 
-    chunks = chunk_text(text)
+        # ------------------------------
+        # Confidence calibration
+        # ------------------------------
 
-    all_chunk_scores = []
+        if top_score < 0.4:
+            top_label = "Unknown"
 
-    for chunk in chunks:
+        # ------------------------------
+        # Reasoning
+        # ------------------------------
 
-        bart_scores = bart_classify(chunk)
+        top_chunks = []
 
-        bert_scores = legalbert_check(chunk)
+        for chunk in chunks[:5]:
+            if top_label.lower() in chunk.lower():
+                top_chunks.append(chunk[:120])
 
-        merged_scores = defaultdict(float)
+        reasoning = f"Top label '{top_label}' based on {len(chunks)} chunks."
 
-        # Merge BART scores
-        for label, score in bart_scores.items():
-            merged_scores[label] += score
+        if top_chunks:
+            reasoning += " Evidence: " + " | ".join(top_chunks[:2])
 
-        # Merge BERT scores
-        for label, score in bert_scores.items():
-            merged_scores[label] += score
+        return {
+            "top_predictions": sorted_preds[:3],
+            "reasoning": reasoning
+        }
 
-        all_chunk_scores.append(merged_scores)
+    except Exception as e:
+        logging.error(f"BERT classification failed: {e}")
 
-    final_scores = aggregate_scores(all_chunk_scores)
+        return {
+            "top_predictions": [("Unknown", 0)],
+            "reasoning": "Classifier failed."
+        }
+    
+def classify_with_bert(text):
+    """
+    Wrapper to match app.py expectations.
+    Returns: (label, confidence)
+    """
 
-    sorted_scores = sorted(
-        final_scores.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
+    result = classify_document(text)
 
-    top3 = sorted_scores[:3]
+    try:
+        top_preds = result.get("top_predictions", [])
 
-    return {
-        "top_predictions": top3,
-        "chunks_processed": len(chunks),
-        "reasoning": f"Classification aggregated from {len(chunks)} document chunks using BART and Legal-BERT."
-    }
+        if not top_preds:
+            return "Unknown", 0
 
+        label, score = top_preds[0]
 
-# -----------------------------
-# RUN TEST
-# -----------------------------
+        return label, float(score)
 
-# if __name__ == "__main__":
-
-#     pdf_path = "uploads/Criminal-Law-of-Lagos-State.pdf"
-
-#     result = classify_document(pdf_path)
-
-#     print("\nTop 3 Predictions:\n")
-
-#     for label, score in result["top_predictions"]:
-#         print(f"{label}: {round(score,4)}")
-
-#     print("\nReasoning:", result["reasoning"])
+    except Exception as e:
+        logging.error(f"BERT wrapper failed: {e}")
+        return "Unknown", 0

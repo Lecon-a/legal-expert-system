@@ -1,268 +1,151 @@
-# app.py
 import os
 import logging
-import threading
-import asyncio
-import nest_asyncio
 from flask import Flask, request, jsonify, render_template
 
 from extractor import extract_text
-from rag_engine import build_index, generate_summary_from_chunks, parse_document_into_chunks
-
-from bert import classify_document as hf_classify_document
-from llama_parser import classify_document_with_llamaparse
+from bert import classify_with_bert
 from prolog_engine import classify_with_prolog
+from llama_parser import classify_document_with_text
+from rag_engine import build_index, query_rag
 
-nest_asyncio.apply()
 logging.basicConfig(level=logging.INFO)
 
+app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app = Flask(__name__, template_folder="templates")
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
-# ------------------------------
-# GLOBAL STATE (cached)
-# ------------------------------
-
-ragReady = False
-query_engine = None
-
 latest_text = ""
-latest_chunks = []
-latest_classification = None
+rag_index = None
 
 
-# ------------------------------
-# Async helper
-# ------------------------------
+# -----------------------------
+# CLASSIFICATION PIPELINE
+# -----------------------------
+def classify_with_fallback(text):
 
-def classify_document_sync(file_path):
-    try:
-        return asyncio.run(classify_document_with_llamaparse(file_path))
-    except Exception as e:
-        logging.error(f"LlamaParse classification failed: {e}")
-        return {"category": "Unknown", "confidence": 0, "reasoning": "Classification failed."}
+    # 1️⃣ Try LLM classification (FAST, no LlamaParse)
+    logging.info("Running LLM text classifier")
+    label, confidence, reasoning = classify_document_with_text(text)
+
+    if label != "Unknown" and confidence > 0.5:
+        return label, confidence, reasoning
+
+    # 2️⃣ Fallback → HuggingFace BERT
+    logging.info("Running HuggingFace classifier")
+    label, confidence = classify_with_bert(text)
+
+    if confidence > 0.6:
+        return label, confidence, "Predicted using BERT model"
+
+    # 3️⃣ Final fallback → Prolog rules
+    logging.info("Running Prolog classifier")
+    label = classify_with_prolog(text)
+
+    return label, 0.5, "Rule-based classification (Prolog)"
 
 
-# ------------------------------
-# Home route
-# ------------------------------
-
+# -----------------------------
+# ROUTES
+# -----------------------------
 @app.route("/")
 def home():
     return render_template("chat.html")
 
 
-# ------------------------------
-# CLASSIFICATION PIPELINE
-# ------------------------------
-
-def classify_with_fallback(text, filepath):
-
-    # 1️⃣ HuggingFace (fastest + primary)
-    try:
-        logging.info("Running HuggingFace classifier")
-
-        hf_result = hf_classify_document(text)
-        top = hf_result["top_predictions"][0]
-
-        return {
-            "category": top[0],
-            "confidence": float(top[1]),
-            "reasoning": hf_result["reasoning"],
-            "engine": "huggingface"
-        }
-
-    except Exception as e:
-        logging.warning(f"HuggingFace failed: {e}")
-
-    # 2️⃣ LlamaParse fallback
-    try:
-        logging.info("Running LlamaParse classifier")
-
-        label, confidence, reasoning = classify_document_sync(filepath)
-
-        return {
-            "category": label,
-            "confidence": confidence,
-            "reasoning": reasoning,
-            "engine": "llamaparse"
-        }
-
-    except Exception as e:
-        logging.warning(f"LlamaParse failed: {e}")
-
-    # 3️⃣ Prolog fallback
-    try:
-        logging.info("Running Prolog classifier")
-
-        label = classify_with_prolog(text)
-
-        return {
-            "category": label,
-            "confidence": 0.6,
-            "reasoning": "Rule-based classification",
-            "engine": "prolog"
-        }
-
-    except Exception as e:
-        logging.warning(f"Prolog failed: {e}")
-
-    return {
-        "category": "Unknown",
-        "confidence": 0,
-        "reasoning": "All classifiers failed",
-        "engine": "none"
-    }
-
-
-# ------------------------------
-# Upload endpoint
-# ------------------------------
-
 @app.route("/upload", methods=["POST"])
 def upload():
 
-    global latest_text, latest_chunks, latest_classification
-    global query_engine, ragReady
+    global latest_text, rag_index
 
     if "document" not in request.files:
-        return jsonify({"success": False, "message": "No file uploaded."}), 400
+        return jsonify({"message": "No file uploaded"})
 
     file = request.files["document"]
 
     if file.filename == "":
-        return jsonify({"success": False, "message": "No file selected."}), 400
+        return jsonify({"message": "No file selected"})
 
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
 
     logging.info(f"File uploaded: {filepath}")
 
-    # ------------------------------
-    # Extract text (ONLY ONCE)
-    # ------------------------------
+    # -----------------------------
+    # Extract text
+    # -----------------------------
+    latest_text = extract_text(filepath)
+    logging.info(f"Extracted text length: {len(latest_text)}")
 
-    try:
-        latest_text = extract_text(filepath)
-    except Exception as e:
-        logging.error(f"Text extraction failed: {e}")
-        latest_text = ""
+    if not latest_text or latest_text.startswith("Error"):
+        return jsonify({
+            "message": "Failed to extract text",
+            "category": "Unknown",
+            "confidence": 0,
+            "reasoning": latest_text
+        })
 
-    # ------------------------------
-    # Chunk text (ONLY ONCE)
-    # ------------------------------
-
-    try:
-        latest_chunks = parse_document_into_chunks(latest_text)
-    except Exception as e:
-        logging.error(f"Chunking failed: {e}")
-        latest_chunks = []
-
-    # ------------------------------
+    # -----------------------------
     # Classification
-    # ------------------------------
+    # -----------------------------
+    label, confidence, reasoning = classify_with_fallback(latest_text)
 
-    latest_classification = classify_with_fallback(latest_text, filepath)
-
-    logging.info(f"Classification result: {latest_classification}")
-
-    # ------------------------------
-    # Build RAG in background
-    # ------------------------------
-
-    ragReady = False
-
-    def build_rag():
-
-        global query_engine, ragReady
-
-        try:
-            logging.info("Building RAG index...")
-
-            query_engine = build_index(latest_chunks)
-
-            ragReady = True
-
-            logging.info("RAG index ready")
-
-        except Exception as e:
-            logging.error(f"RAG build failed: {e}")
-
-    threading.Thread(target=build_rag, daemon=True).start()
-
-    # ------------------------------
-    # Response
-    # ------------------------------
+    # -----------------------------
+    # Build RAG index
+    # -----------------------------
+    logging.info("Building RAG index...")
+    rag_index = build_index(filepath)
 
     return jsonify({
-        "success": True,
-        "message": "Document uploaded successfully.",
-        "category": latest_classification["category"],
-        "confidence": latest_classification["confidence"],
-        "reasoning": latest_classification["reasoning"],
-        "engine": latest_classification["engine"]
+        "message": "Upload successful",
+        "category": label,
+        "confidence": confidence,
+        "reasoning": reasoning
     })
 
-
-# ------------------------------
-# Summary endpoint
-# ------------------------------
-
-@app.route("/summary", methods=["POST"])
-def summary():
-
-    global latest_chunks, latest_classification
-
-    if not latest_chunks:
-        return jsonify({"success": False, "summary": None})
-
-    summary_text = generate_summary_from_chunks(latest_chunks)
-
-    return jsonify({
-        "success": True,
-        "summary": summary_text,
-        "category": latest_classification["category"] if latest_classification else "Unknown"
-    })
-
-
-# ------------------------------
-# Ask endpoint
-# ------------------------------
 
 @app.route("/ask", methods=["POST"])
 def ask():
 
-    question = request.form.get("question", "").strip()
+    global latest_text, rag_index
+
+    question = request.form.get("question")
 
     if not question:
-        return jsonify({"answer": "No question provided.", "engine": "N/A"})
+        return jsonify({"answer": "No question provided", "engine": "error"})
 
-    if not ragReady:
-        return jsonify({"answer": "RAG index still building.", "engine": "N/A"})
+    if not latest_text:
+        return jsonify({"answer": "Upload a document first", "engine": "error"})
 
     try:
-        response = query_engine.query(question)
+        # -----------------------------
+        # Use RAG if available
+        # -----------------------------
+        if rag_index:
+            answer = query_rag(rag_index, question)
+            return jsonify({"answer": answer, "engine": "RAG"})
 
-        return jsonify({
-            "answer": str(response),
-            "engine": "RAG"
-        })
+        # -----------------------------
+        # Fallback → direct LLM
+        # -----------------------------
+        prompt = f"""
+Answer the question based on this document:
+
+{latest_text[:4000]}
+
+Question: {question}
+"""
+
+        answer = classify_document_with_text(prompt)[2]  # reuse LLM
+
+        return jsonify({"answer": answer, "engine": "LLM"})
 
     except Exception as e:
-        logging.error(e)
-
-        return jsonify({
-            "answer": "Failed to generate answer.",
-            "engine": "error"
-        })
+        logging.error(f"Error in /ask: {e}")
+        return jsonify({"answer": "Something went wrong", "engine": "error"})
 
 
-# ------------------------------
-# Run
-# ------------------------------
-
+# -----------------------------
+# RUN
+# -----------------------------
 if __name__ == "__main__":
     app.run(debug=True)

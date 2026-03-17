@@ -1,118 +1,138 @@
 # rag_engine.py
 import os
-from threading import Lock
-from collections import deque
+import logging
 from dotenv import load_dotenv
-from llama_index.core import (
-    VectorStoreIndex,
-    Settings,
-    SimpleDirectoryReader,
-    StorageContext,
-    load_index_from_storage
-)
-from llama_index.core.node_parser import SentenceSplitter
-from llama_index.llms.ollama import Ollama
+from llama_parse import LlamaParse
+from llama_index.core import VectorStoreIndex, Document
 from llama_index.embeddings.ollama import OllamaEmbedding
-import pdfplumber  # reliable PDF extraction
+from llama_index.llms.ollama import Ollama
 
 load_dotenv()
+# ------------------------------
+# CONFIG
+# ------------------------------
 
-INDEX_DIR = "storage"
-_index_lock = Lock()
-CHUNK_DOCS = 5
-TOP_K_CHUNKS = 5
+PARSER = LlamaParse(
+    api_key=os.getenv("LLAMA_CLOUD_API_KEY"),
+    result_type="markdown", 
+    verbose=False
+)
 
-uploaded_file_chunks = []  # global to store last uploaded doc chunks
+EMBED_MODEL = OllamaEmbedding(model_name="nomic-embed-text")
+
+LLM = Ollama(model="llama3", request_timeout=60.0)
 
 
-# ---------------------------
-# Build or load RAG index
-# ---------------------------
+# ------------------------------
+# CHUNKING (FIXED)
+# ------------------------------
+
+def parse_document_into_chunks(file_path):
+
+    try:
+        documents = PARSER.load_data(file_path)
+
+        if not documents:
+            return []
+
+        full_text = "\n".join([doc.text for doc in documents])
+
+        # Simple chunking
+        words = full_text.split()
+        chunks = []
+
+        chunk_size = 300
+        overlap = 50
+
+        for i in range(0, len(words), chunk_size - overlap):
+            chunk = " ".join(words[i:i + chunk_size])
+
+            if len(chunk.strip()) > 50:
+                chunks.append(chunk)
+
+        # ✅ 🔥 ADD IT HERE (RIGHT BEFORE RETURN)
+        if len(chunks) > 120:
+            chunks = chunks[:120]
+
+        return chunks
+
+    except Exception as e:
+        logging.error(f"Chunk parsing failed: {e}")
+        return []
+
+
+# ------------------------------
+# BUILD INDEX
+# ------------------------------
+
 def build_index(file_path):
-    with _index_lock:
-        llm = Ollama(model="mistral", temperature=0, request_timeout=120)
-        embed_model = OllamaEmbedding(model_name="nomic-embed-text")
-        splitter = SentenceSplitter(chunk_size=300, chunk_overlap=30)
 
-        Settings.llm = llm
-        Settings.embed_model = embed_model
-        Settings.node_parser = splitter
+    try:
+        chunks = parse_document_into_chunks(file_path)
 
-        documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
-        doc_queue = deque(documents)
-        index = None
+        if not chunks:
+            raise ValueError("No chunks generated")
 
-        while doc_queue:
-            batch = [doc_queue.popleft() for _ in range(min(CHUNK_DOCS, len(doc_queue)))]
-            if index is None:
-                index = VectorStoreIndex.from_documents(batch)
-            else:
-                index.insert_documents(batch)
+        documents = [Document(text=chunk) for chunk in chunks]
 
-        index.storage_context.persist(persist_dir=INDEX_DIR)
-        query_engine = index.as_query_engine(
-            similarity_top_k=TOP_K_CHUNKS,
-            response_mode="compact"
+        index = VectorStoreIndex.from_documents(
+            documents,
+            embed_model=EMBED_MODEL
         )
+
+        query_engine = index.as_query_engine(
+            llm=LLM,
+            similarity_top_k=4
+        )
+
         return query_engine
 
-
-def load_index():
-    if not os.path.exists(INDEX_DIR):
-        return None
-    try:
-        storage_context = StorageContext.from_defaults(persist_dir=INDEX_DIR)
-        index = load_index_from_storage(storage_context)
-        query_engine = index.as_query_engine(
-            similarity_top_k=TOP_K_CHUNKS,
-            response_mode="compact"
-        )
-        return query_engine
     except Exception as e:
-        print("Failed to load existing RAG index:", e)
-        return None
+        logging.error(f"Index build failed: {e}")
+        raise
 
 
-# ---------------------------
-# PDF to text and chunks
-# ---------------------------
-def parse_document_into_chunks(file_path, chunk_size=500, chunk_overlap=50):
-    """Extract text from PDF and split into chunks."""
-    global uploaded_file_chunks
-    text = ""
-    try:
-        with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-    except Exception as e:
-        print(f"Failed to extract text from {file_path}: {e}")
-        return []
+# ------------------------------
+# SUMMARY
+# ------------------------------
 
-    if not text.strip():
-        return []
-
-    # Chunking
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = start + chunk_size
-        chunk_text = text[start:end].strip()
-        if chunk_text:
-            chunks.append({"text": chunk_text, "category_score": 0})
-        start += chunk_size - chunk_overlap
-
-    uploaded_file_chunks = chunks
-    return chunks
-
-
-# ---------------------------
-# Generate summary
-# ---------------------------
 def generate_summary_from_chunks(chunks):
-    """Simple summary: take first 5 chunk snippets."""
-    if not chunks:
-        return "No text available to summarize."
-    summary = " ".join([c["text"][:150] for c in chunks[:5]])
-    return summary
+
+    try:
+        if not chunks:
+            return "No content to summarize."
+
+        text = "\n".join(chunks[:10])  # limit
+
+        prompt = f"""
+Summarize this legal document clearly:
+
+{text}
+"""
+
+        response = LLM.complete(prompt)
+
+        return response.text.strip()
+
+    except Exception as e:
+        logging.error(f"Summary failed: {e}")
+        return "Summary generation failed."
+    
+
+def query_rag(query_engine, question):
+    """
+    Query the RAG engine safely.
+    """
+
+    try:
+        response = query_engine.query(question)
+
+        # LlamaIndex responses can be objects
+        if hasattr(response, "response"):
+            return response.response
+
+        return str(response)
+
+    except Exception as e:
+        logging.error(f"RAG query failed: {e}")
+        return "Failed to retrieve answer from document."
