@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LegalEase AI — Understand Any Legal Document Instantly</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+</head>
+
+<body>
+
+    <!-- ================== NAVBAR ================== -->
+    <nav class="navbar">
+        <div class="nav-logo">LegalEase AI</div>
+    
+        <!-- Mobile Toggle -->
+        <button class="nav-toggle" id="navToggle">☰</button>
+    
+        <!-- Nav Links -->
+        <div class="nav-links" id="navLinks">
+            <a href="#how">How It Works</a>
+            <a href="#story">The Mission</a>
+            <a href="#footer">Contact</a>
+            <button class="cta-btn" onclick="window.location.href='/auth'">
+                Get Started
+            </button>
+        </div>
+    </nav>
+
+    <!-- ================== HERO SECTION ================== -->
+    <header class="hero">
+        <div class="hero-content">
+
+            <h1>Understand Any Legal Document — Instantly & Clearly</h1>
+            <p>
+                Upload legal documents, get an instant classification, a simplified summary,
+                and ask AI any follow-up questions in plain English.
+            </p>
+
+            <a href="/dashboard" class="cta-btn">Get Started</a>
+        </div>
+
+        <!-- ===== Integrated Animated Illustration ===== -->
+        <div class="hero-illustration">
+            <div class="illustration-container">
+
+                <!-- Floating Document -->
+                <div class="doc-card floating">
+                    <div class="doc-title"></div>
+                    <div class="doc-line short"></div>
+                    <div class="doc-line"></div>
+                    <div class="doc-line"></div>
+                </div>
+
+                <!-- AI Brain Glow -->
+                <div class="ai-brain pulse"></div>
+
+                <!-- Chat Bubbles -->
+                <div class="chat-bubble left-slide">
+                    Explain clause 4 in simple English?
+                </div>
+
+                <div class="chat-bubble right-slide">
+                    Clause 4 states that you must not share confidential
+                    information for 2 years after leaving the company.
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- ================== HOW IT WORKS ================== -->
+    <section id="how" class="how-section">
+        <h2>How It Works</h2>
+
+        <div class="steps">
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Upload Your Legal Document</h3>
+                <p>
+                    Upload any legal file — NDA, contract, agreement, MoU, employment terms.
+                    The system instantly identifies what type of legal document it is.
+                </p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Get Instant, Clear Understanding</h3>
+                <p>
+                    The AI summarizes the document in simple, everyday language.
+                    No jargon. No confusion. No legal background needed.
+                </p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Ask Questions Like You're Chatting</h3>
+                <p>
+                    Need clarity on a clause? Ask the AI.
+                    It will explain obligations, risks, confidentiality terms, and more —
+                    all in human language.
+                </p>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ================== STORY — HACKATHON FEATURE ================== -->
+    <section id="story" class="story-section">
+        <h2>Why This Project Matters</h2>
+
+        <p>
+            This solution was built for the
+            <strong>DevCareer × Raenest Freelancer Hackathon: Democratizing Legal Literacy with AI.</strong>
+        </p>
+
+        <p>
+            The mission is deeply personal.
+            Someone close to the founder signed an NDA without fully understanding it — and
+            it led to unexpected legal trouble.
+        </p>
+
+        <p>
+            Many people sign contracts, NDAs, and agreements without grasping what they mean.
+            This tool empowers individuals to make informed decisions — reducing legal risks dramatically.
+        </p>
+
+        <p>
+            Powered by <strong>AI and Retrieval-Augmented Generation (RAG)</strong>,
+            LegalEase AI bridges the knowledge gap and helps everyday people protect themselves.
+        </p>
+
+        <p><strong>Wish us luck in the final judging! 🙏</strong></p>
+
+        <div class="hackathon-tags">
+            <span>#RaenestXDevCareer</span>
+            <span>@dev_careers</span>
+            <span>@RaenestApp</span>
+        </div>
+    </section>
+
+    <!-- ================== FOOTER ================== -->
+    <footer class="footer" id="footer">
+        <div class="footer-container">
+    
+            <div class="footer-brand">
+                <h2>LegalLens AI</h2>
+                <p class="footer-tagline">
+                    Democratizing legal literacy with AI — built for the DevCareer × Raenest Freelancer Hackathon.
+                </p>
+    
+                <!-- Trust Badges -->
+                <div class="trust-badges">
+                    <span class="badge">🔒 Secure</span>
+                    <span class="badge">🛡️ Encrypted</span>
+                    <span class="badge">📁 No Document Stored</span>
+                    <span class="badge">✨ Personalized Experience</span>
+                </div>
+            </div>
+    
+            <div class="footer-links">
+                <div>
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#how-it-works">How It Works</a></li>
+                        <li><a href="#upload">Analyze Document</a></li>
+                    </ul>
+                </div>
+    
+                <div>
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="#faq">FAQ</a></li>
+                        <li><a href="#privacy">Privacy Policy</a></li>
+                        <li><a href="#terms">Terms of Service</a></li>
+                    </ul>
+                </div>
+    
+                <div>
+                    <h4>About</h4>
+                    <ul>
+                        <li><a href="#about">Our Story</a></li>
+                        <li><a href="#hackathon">Hackathon Project</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+    
+        </div>
+    
+        <div class="footer-bottom">
+            <p>© 2026 SPa. All rights reserved.</p>
+            <p class="data-disclaimer">
+                We collect minimal account information during signup to personalize your experience — never your documents.
+                Your uploads remain untracked and are processed securely in real time.
+            </p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+
+</body>
+
+</html>

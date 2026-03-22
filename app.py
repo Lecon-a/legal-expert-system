@@ -1,151 +1,147 @@
 import os
 import logging
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session, redirect
 
+# --- Core Modules ---
 from extractor import extract_text
-from bert import classify_with_bert
-from prolog_engine import classify_with_prolog
-from llama_parser import classify_document_with_text
-from rag_engine import build_index, query_rag
+from rag_engine import build_index, query_rag, classify_legal_document
+
+# --- Auth + History ---
+from auth import auth_bp, auth_required
+from chat_history import history_bp, save_message, create_new_conversation
+from database import init_db
 
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "super-secret-key")
+
+app.config.update({
+    "SESSION_COOKIE_HTTPONLY": True,
+    "SESSION_COOKIE_SAMESITE": "Strict",
+    "SESSION_COOKIE_SECURE": False,
+    "PERMANENT_SESSION_LIFETIME": 60 * 60 * 4,
+})
+
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 latest_text = ""
 rag_index = None
+rag_cache = {}
+
+app.register_blueprint(auth_bp)
+app.register_blueprint(history_bp)
 
 
-# -----------------------------
-# CLASSIFICATION PIPELINE
-# -----------------------------
-def classify_with_fallback(text):
-
-    # 1️⃣ Try LLM classification (FAST, no LlamaParse)
-    logging.info("Running LLM text classifier")
-    label, confidence, reasoning = classify_document_with_text(text)
-
-    if label != "Unknown" and confidence > 0.5:
-        return label, confidence, reasoning
-
-    # 2️⃣ Fallback → HuggingFace BERT
-    logging.info("Running HuggingFace classifier")
-    label, confidence = classify_with_bert(text)
-
-    if confidence > 0.6:
-        return label, confidence, "Predicted using BERT model"
-
-    # 3️⃣ Final fallback → Prolog rules
-    logging.info("Running Prolog classifier")
-    label = classify_with_prolog(text)
-
-    return label, 0.5, "Rule-based classification (Prolog)"
-
-
-# -----------------------------
-# ROUTES
-# -----------------------------
+# ================= LANDING =================
 @app.route("/")
-def home():
-    return render_template("chat.html")
+def index():
+    if "user_id" in session:
+        return redirect("/dashboard")
+    return render_template("index.html")
 
 
+@app.route("/auth")
+def auth_page():
+    return render_template("auth.html")
+
+
+@app.route("/dashboard")
+@auth_required
+def dashboard():
+    return render_template("dashboard.html")
+
+
+# ================= UPLOAD =================
 @app.route("/upload", methods=["POST"])
+@auth_required
 def upload():
 
-    global latest_text, rag_index
+    global latest_text, rag_index, rag_cache
 
-    if "document" not in request.files:
-        return jsonify({"message": "No file uploaded"})
+    file = request.files.get("document")
 
-    file = request.files["document"]
+    if not file or file.filename == "":
+        return jsonify({"success": False, "message": "No file selected"})
 
-    if file.filename == "":
-        return jsonify({"message": "No file selected"})
+    path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(path)
 
-    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(filepath)
-
-    logging.info(f"File uploaded: {filepath}")
-
-    # -----------------------------
     # Extract text
-    # -----------------------------
-    latest_text = extract_text(filepath)
-    logging.info(f"Extracted text length: {len(latest_text)}")
+    latest_text = extract_text(path)
 
-    if not latest_text or latest_text.startswith("Error"):
+    if not latest_text:
+        return jsonify({"success": False, "message": "Text extraction failed"})
+
+    # 🔥 CLASSIFY FIRST
+    is_legal, reasoning = classify_legal_document(latest_text)
+
+    # 🔥 Backup heuristic (VERY IMPORTANT)
+    keywords = ["agreement", "contract", "party", "clause", "terms", "law"]
+
+    if not is_legal:
+        if any(k in latest_text.lower() for k in keywords):
+            is_legal = True
+            reasoning += " (Accepted via keyword fallback)"
+
+    if not is_legal:
         return jsonify({
-            "message": "Failed to extract text",
-            "category": "Unknown",
-            "confidence": 0,
-            "reasoning": latest_text
+            "success": False,
+            "message": "❌ Only legal documents allowed",
+            "reasoning": reasoning
         })
 
-    # -----------------------------
-    # Classification
-    # -----------------------------
-    label, confidence, reasoning = classify_with_fallback(latest_text)
-
-    # -----------------------------
-    # Build RAG index
-    # -----------------------------
-    logging.info("Building RAG index...")
-    rag_index = build_index(filepath)
+    # 🔥 BUILD INDEX AFTER VALIDATION
+    rag_index = build_index(latest_text)
+    rag_cache.clear()
 
     return jsonify({
-        "message": "Upload successful",
-        "category": label,
-        "confidence": confidence,
+        "success": True,
+        "message": "Legal document accepted",
         "reasoning": reasoning
     })
 
-
+# ================= ASK =================
 @app.route("/ask", methods=["POST"])
+@auth_required
 def ask():
 
-    global latest_text, rag_index
+    global rag_index, rag_cache
 
-    question = request.form.get("question")
+    user_id = session["user_id"]
+    question = request.form.get("question", "").strip()
+    conv_id = request.form.get("conversation_id")
 
     if not question:
-        return jsonify({"answer": "No question provided", "engine": "error"})
+        return jsonify({"answer": "No question provided"})
 
-    if not latest_text:
-        return jsonify({"answer": "Upload a document first", "engine": "error"})
+    if not rag_index:
+        return jsonify({"answer": "Upload document first"})
 
-    try:
-        # -----------------------------
-        # Use RAG if available
-        # -----------------------------
-        if rag_index:
-            answer = query_rag(rag_index, question)
-            return jsonify({"answer": answer, "engine": "RAG"})
+    if not conv_id:
+        conv_id = create_new_conversation(user_id)
 
-        # -----------------------------
-        # Fallback → direct LLM
-        # -----------------------------
-        prompt = f"""
-Answer the question based on this document:
+    save_message(conv_id, user_id, "user", question)
 
-{latest_text[:4000]}
+    if question in rag_cache:
+        answer = rag_cache[question]
+        save_message(conv_id, user_id, "assistant", answer)
+        return jsonify({"answer": answer, "conversation_id": conv_id})
 
-Question: {question}
-"""
+    result = query_rag(rag_index, question)
+    answer = result.get("answer", "No answer")
 
-        answer = classify_document_with_text(prompt)[2]  # reuse LLM
+    rag_cache[question] = answer
+    save_message(conv_id, user_id, "assistant", answer)
 
-        return jsonify({"answer": answer, "engine": "LLM"})
-
-    except Exception as e:
-        logging.error(f"Error in /ask: {e}")
-        return jsonify({"answer": "Something went wrong", "engine": "error"})
+    return jsonify({
+        "answer": answer,
+        "conversation_id": conv_id
+    })
 
 
-# -----------------------------
-# RUN
-# -----------------------------
+# ================= RUN =================
 if __name__ == "__main__":
-    app.run(debug=True)
+    init_db()
+    app.run(debug=True, use_reloader=False)

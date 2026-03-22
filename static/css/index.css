@@ -1,0 +1,587 @@
+/* ================== GLOBAL ================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Inter", sans-serif;
+}
+
+body {
+    background: #f9fbff;
+    color: #1b1e27;
+    line-height: 1.6;
+}
+
+h1,
+h2,
+h3 {
+    font-weight: 700;
+}
+
+/* ================== NAVBAR ================== */
+.navbar {
+    width: 100%;
+    padding: 1.4rem 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.nav-logo {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.nav-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: #334;
+    font-weight: 500;
+    transition: 0.3s;
+}
+
+.nav-links a:hover {
+    color: #3d5afe;
+}
+
+/* Mobile toggle */
+.nav-toggle {
+    display: none;
+    font-size: 1.9rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* ================== HERO ================== */
+.hero {
+    width: 100%;
+    padding: 4rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3rem;
+    background: white;
+    position: relative;
+    flex-wrap: wrap;
+    /* prevents overlap */
+    overflow: hidden;
+}
+
+/* Desktop layout */
+@media (min-width: 900px) {
+    .hero {
+        flex-direction: row;
+        text-align: left;
+        padding: 6rem 5%;
+    }
+}
+
+/* Mobile layout */
+@media (max-width: 899px) {
+    .hero {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+.hero-content {
+    flex: 1;
+    max-width: 600px;
+    z-index: 2;
+}
+
+.hero-content h1 {
+    font-size: 2.8rem;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+}
+
+.hero-content p {
+    font-size: 1.1rem;
+    opacity: 0.85;
+    margin-bottom: 2rem;
+}
+
+/* CTA button */
+.cta-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(79, 70, 229, 0.25);
+    transition: 0.3s ease;
+}
+
+.cta-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(79, 70, 229, 0.35);
+}
+
+/* ======================================================
+   HERO ILLUSTRATION — PREMIUM ENHANCED VERSION
+====================================================== */
+
+.hero-illustration {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 300px;
+    z-index: 1;
+    position: relative;
+    perspective: 900px;
+    /* enables 3D effects */
+}
+
+/* SAFE container */
+.illustration-container {
+    position: relative;
+    width: 350px;
+    height: 420px;
+    padding: 2rem;
+    transition: transform 0.4s ease;
+}
+
+/* Parallax on hover (desktop only) */
+@media (min-width: 900px) {
+    .illustration-container:hover {
+        transform: translateY(-6px) rotateX(4deg) rotateY(-4deg);
+    }
+}
+
+/* ======================================================
+   DOCUMENT CARD — Enhanced 3D + Shimmer Glow
+====================================================== */
+
+.doc-card {
+    width: 170px;
+    height: 220px;
+    background: white;
+    padding: 1rem;
+    border-radius: 14px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.15);
+    position: absolute;
+    top: 18%;
+    /* moved higher */
+    left: 15%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    animation: docFloat 4.5s ease-in-out infinite;
+}
+
+/* Soft tilt float */
+@keyframes docFloat {
+
+    0%,
+    100% {
+        transform: translate(-50%, -50%) rotate(-1deg);
+    }
+
+    50% {
+        transform: translate(-50%, -52%) rotate(1deg);
+    }
+}
+
+/* Shine effect */
+.doc-card::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -80%;
+    width: 70%;
+    height: 100%;
+    background: linear-gradient(120deg,
+            transparent,
+            rgba(255, 255, 255, 0.25),
+            transparent);
+    transform: skewX(-20deg);
+    animation: shimmer 3.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        left: -80%;
+    }
+
+    60% {
+        left: 180%;
+    }
+
+    100% {
+        left: 180%;
+    }
+}
+
+/* ======================================================
+   AI BRAIN — Pulse + Breathing Energy Ring
+====================================================== */
+
+.ai-brain {
+    width: 130px;
+    height: 130px;
+    background: radial-gradient(circle at center, #6366f1, #4f46e5);
+    border-radius: 50%;
+    position: absolute;
+    top: 55%;
+    /* moved lower */
+    left: 50%;
+    transform: translate(-50%, -50%);
+    filter: blur(12px);
+    opacity: 0.6;
+    z-index: 1;
+    animation: brainPulse 3.2s ease-in-out infinite;
+}
+
+@keyframes brainPulse {
+
+    0%,
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: .55;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.22);
+        opacity: .85;
+    }
+}
+
+/* Animated energy ring */
+.ai-brain::after {
+    content: "";
+    position: absolute;
+    inset: -15px;
+    border-radius: 50%;
+    border: 3px solid rgba(99, 102, 241, 0.3);
+    animation: ringPulse 3s infinite ease-in-out;
+}
+
+@keyframes ringPulse {
+    0% {
+        transform: scale(1);
+        opacity: .45;
+    }
+
+    50% {
+        transform: scale(1.4);
+        opacity: .15;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: .45;
+    }
+}
+
+/* ======================================================
+   CHAT BUBBLES — Enhanced Typing Pop-In
+====================================================== */
+
+.chat-bubble {
+    position: absolute;
+    padding: 0.75rem 1rem;
+    background: #eef2ff;
+    border-radius: 12px;
+    max-width: 190px;
+    font-size: 0.92rem;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+    z-index: 4;
+    opacity: 0;
+}
+
+/* Subtle pop-in typing effect */
+.chat-bubble span {
+    opacity: 0;
+    animation: typeIn 1.4s forwards;
+}
+
+@keyframes typeIn {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Left bubble — top-left */
+.chat-bubble.left-slide {
+    top: 11%;
+    left: 5%;
+    animation: bubblePopLeft 1.3s forwards .2s;
+}
+
+@keyframes bubblePopLeft {
+    0% {
+        transform: translate(-25px, 0) scale(.9);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* Right bubble — bottom-right */
+.chat-bubble.right-slide {
+    bottom: 10%;
+    right: 5%;
+    animation: bubblePopRight 1.3s forwards .8s;
+}
+
+@keyframes bubblePopRight {
+    0% {
+        transform: translate(25px, 0) scale(.9);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* ======================================================
+   MOBILE SCALING
+====================================================== */
+@media (max-width: 480px) {
+    .illustration-container {
+        transform: scale(0.78);
+        height: 360px;
+    }
+
+    .chat-bubble {
+        font-size: 0.75rem;
+        max-width: 140px;
+    }
+}
+
+/* ================== HOW SECTION ================== */
+.how-section {
+    padding: 5% 5%;
+    text-align: center;
+}
+
+.steps {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 3rem;
+}
+
+.step {
+    width: 30%;
+    background: white;
+    padding: 2rem;
+    border-radius: 14px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    transition: 0.3s;
+}
+
+.step:hover {
+    transform: translateY(-8px);
+}
+
+.step-number {
+    width: 45px;
+    height: 45px;
+    background: #3d5afe;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 1rem;
+}
+
+/* ================== STORY SECTION ================== */
+.story-section {
+    padding: 5% 5%;
+    background: white;
+    line-height: 1.8;
+}
+
+.hackathon-tags span {
+    display: inline-block;
+    background: #e8edff;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    margin-right: 0.5rem;
+    margin-top: 1rem;
+}
+
+/* ================== FOOTER ================== */
+.footer {
+    background: #0a0b10;
+    color: #dce3ff;
+    padding: 4rem 5% 2rem;
+    margin-top: 5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 3rem;
+}
+
+.footer-brand h3 {
+    color: #80a0ff;
+    font-size: 1.7rem;
+    margin-bottom: 0.6rem;
+}
+
+.footer-brand p {
+    max-width: 350px;
+    opacity: 0.85;
+}
+
+/* Horizontal Links */
+.footer-links {
+    display: flex;
+    gap: 2rem;
+}
+
+.footer-links h4 {
+    color: #9fb4ff;
+    font-size: 1.1rem;
+}
+
+.footer-links a {
+    color: #d1d9ff;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: .3s;
+}
+
+.footer-links a:hover {
+    color: #6b8bff;
+}
+
+/* Trust Badges */
+.trust-badges {
+    margin-top: 2rem;
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.badge {
+    text-align: center;
+    opacity: 0.9;
+    transition: .3s;
+}
+
+.badge:hover {
+    opacity: 1;
+    transform: translateY(-4px);
+}
+
+.badge-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.07);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.7rem;
+    margin-bottom: .6rem;
+    animation: badgePulse 3s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+    50% {
+        transform: scale(1.09);
+    }
+}
+
+/* Footer bottom */
+.footer-bottom {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    opacity: 0.85;
+    font-size: .9rem;
+}
+
+/* ================== RESPONSIVENESS ================== */
+@media (max-width: 900px) {
+
+    .nav-toggle {
+        display: block;
+    }
+
+    .nav-links {
+        display: none;
+        position: absolute;
+        gap: 1rem;
+        left: 0;
+        top: 100%;
+        width: 100%;
+        background: white;
+        padding: 1.5rem;
+        flex-direction: column;
+    }
+
+    .nav-links.open {
+        display: flex;
+    }
+
+    .steps {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .step {
+        width: 100%;
+    }
+
+    .footer-links {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .trust-badges {
+        gap: 1.4rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .chat-bubble {
+        font-size: 0.75rem;
+        max-width: 130px;
+    }
+}
+
+@media (max-width: 480px) {
+    .doc-card {
+        left: 25%;
+        top: 10%;
+        transform: translate(-50%, -20%);
+    }
+
+    .ai-brain {
+        left: 70%;
+        top: 60%;
+    }
+}

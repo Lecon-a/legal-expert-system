@@ -1,59 +1,50 @@
-# rag_engine.py
-import os
+import time
 import logging
 from dotenv import load_dotenv
-from llama_parse import LlamaParse
+
 from llama_index.core import VectorStoreIndex, Document
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
 load_dotenv()
-# ------------------------------
-# CONFIG
-# ------------------------------
 
-PARSER = LlamaParse(
-    api_key=os.getenv("LLAMA_CLOUD_API_KEY"),
-    result_type="markdown", 
-    verbose=False
-)
+# ============================================================
+# MODELS
+# ============================================================
 
 EMBED_MODEL = OllamaEmbedding(model_name="nomic-embed-text")
 
-LLM = Ollama(model="llama3", request_timeout=60.0)
+LLM = Ollama(
+    model="llama3",
+    request_timeout=120.0
+)
 
 
-# ------------------------------
-# CHUNKING (FIXED)
-# ------------------------------
+# ============================================================
+# CHUNKING
+# ============================================================
 
-def parse_document_into_chunks(file_path):
-
+def parse_document_into_chunks(text, chunk_size=250, overlap=40):
+    """
+    Convert long text into overlapping chunks for RAG.
+    """
     try:
-        documents = PARSER.load_data(file_path)
-
-        if not documents:
-            return []
-
-        full_text = "\n".join([doc.text for doc in documents])
-
-        # Simple chunking
-        words = full_text.split()
+        words = text.split()
         chunks = []
 
-        chunk_size = 300
-        overlap = 50
+        step = chunk_size - overlap
 
-        for i in range(0, len(words), chunk_size - overlap):
+        for i in range(0, len(words), step):
             chunk = " ".join(words[i:i + chunk_size])
 
-            if len(chunk.strip()) > 50:
+            if len(chunk.strip()) > 80:  # ignore tiny chunks
                 chunks.append(chunk)
 
-        # ✅ 🔥 ADD IT HERE (RIGHT BEFORE RETURN)
-        if len(chunks) > 120:
-            chunks = chunks[:120]
+        # Hard cap to prevent overloading vector index
+        if len(chunks) > 100:
+            chunks = chunks[:100]
 
+        logging.info(f"Chunks created: {len(chunks)}")
         return chunks
 
     except Exception as e:
@@ -61,14 +52,16 @@ def parse_document_into_chunks(file_path):
         return []
 
 
-# ------------------------------
-# BUILD INDEX
-# ------------------------------
+# ============================================================
+# BUILD RAG INDEX
+# ============================================================
 
-def build_index(file_path):
-
+def build_index(text):
+    """
+    Turns extracted text → chunked docs → vector index → query engine.
+    """
     try:
-        chunks = parse_document_into_chunks(file_path)
+        chunks = parse_document_into_chunks(text)
 
         if not chunks:
             raise ValueError("No chunks generated")
@@ -82,57 +75,122 @@ def build_index(file_path):
 
         query_engine = index.as_query_engine(
             llm=LLM,
-            similarity_top_k=4
+            similarity_top_k=2
         )
 
         return query_engine
 
     except Exception as e:
         logging.error(f"Index build failed: {e}")
-        raise
+        return None
 
 
-# ------------------------------
-# SUMMARY
-# ------------------------------
+# ============================================================
+# 🔥 LEGAL DOCUMENT CLASSIFIER USING RAG
+# ============================================================
 
-def generate_summary_from_chunks(chunks):
+def classify_legal_document(text):
 
     try:
-        if not chunks:
-            return "No content to summarize."
-
-        text = "\n".join(chunks[:10])  # limit
-
         prompt = f"""
-Summarize this legal document clearly:
+You are a legal document classifier.
 
-{text}
+Your job:
+Determine if the document is a LEGAL document.
+
+Legal documents include:
+- contracts
+- agreements
+- NDAs
+- policies
+- laws
+- court judgments
+- legal notices
+
+Respond STRICTLY in this format:
+
+ANSWER: YES or NO
+REASON: short explanation
+
+Document:
+{text[:2000]}
 """
 
         response = LLM.complete(prompt)
+        output = response.text.strip()
 
-        return response.text.strip()
+        # Normalize
+        output_upper = output.upper()
+
+        if "ANSWER: YES" in output_upper:
+            return True, output
+
+        return False, output
 
     except Exception as e:
-        logging.error(f"Summary failed: {e}")
-        return "Summary generation failed."
+        logging.error(f"Legal classification failed: {e}")
+        return False, "Classification failed"
     
+    
+# ============================================================
+# QUERY RAG (Strict IRAC Legal Reasoning)
+# ============================================================
 
 def query_rag(query_engine, question):
     """
-    Query the RAG engine safely.
+    Main legal reasoning engine: uses IRAC format.
     """
-
     try:
-        response = query_engine.query(question)
+        start = time.time()
 
-        # LlamaIndex responses can be objects
-        if hasattr(response, "response"):
-            return response.response
+        prompt = f"""
+        You are a strict legal reasoning assistant.
+        ONLY use the provided document context.
+        DO NOT invent any laws, facts, or clauses.
 
-        return str(response)
+        If the answer is not found, say:
+        "Not explicitly stated in the document."
+
+        Follow IRAC format:
+
+        ISSUE:
+        - Identify the legal issue.
+
+        RULE:
+        - Cite any relevant clause or principle *from the document only*.
+
+        APPLICATION:
+        - Apply rules to the question strictly based on the document.
+
+        CONCLUSION:
+        - Provide the concise legal answer.
+
+        Question:
+        {question}
+        """
+
+        response = query_engine.query(prompt)
+
+        elapsed = time.time() - start
+        logging.info(f"RAG response time: {elapsed:.2f}s")
+
+        answer = getattr(response, "response", str(response)).strip()
+
+        # Extract sources (optional)
+        sources = []
+        if hasattr(response, "source_nodes"):
+            for node in response.source_nodes[:2]:
+                text = node.text.strip().replace("\n", " ")
+                sources.append(text[:180])
+
+        return {
+            "answer": answer,
+            "sources": sources
+        }
 
     except Exception as e:
         logging.error(f"RAG query failed: {e}")
-        return "Failed to retrieve answer from document."
+        return {
+            "answer": "⚠️ Failed to retrieve answer.",
+            "sources": []
+        }

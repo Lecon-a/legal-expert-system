@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>⚖️ Legal Document AI Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+
+<body>
+
+    <header>⚖️ Legal Document Understanding Engine</header>
+
+    <div class="container" id="container">
+
+        <!-- SIDEBAR -->
+        <aside id="historySidebar" class="history-sidebar">
+            <!-- Toggle -->
+            <div class="history-header">
+                <span class="title">Conversations</span>
+                <button id="clearHistoryBtn" class="clear-btn">Clear All</button>
+            </div>
+            <div id="historyList" class="history-list"></div>
+        </aside>
+        <button id="toggleHistory" class="history-toggle">☰</button>
+
+
+        <!-- LEFT PANEL (PDF PREVIEW) -->
+        <section class="left">
+            <iframe id="pdfPreview"></iframe>
+        </section>
+
+        <!-- RIGHT PANEL -->
+        <section class="right">
+
+            <!-- UPLOAD SECTION -->
+            <div class="upload-section">
+                <h3>Upload Document</h3>
+
+                <div class="upload-group">
+
+                    <div class="upload-actions">
+                        <label class="upload-label">
+                            📄 Select PDF
+                            <input type="file" id="documentInput" accept=".pdf">
+                        </label>
+
+                        <button class="upload-btn" id="uploadBtn">Upload</button>
+                    </div>
+
+                    <span id="selectedFile"></span>
+
+                    <div id="uploadStatus" class="status">No file uploaded.</div>
+
+                    <div id="ragProgress" class="progress" style="display:none;">
+                        <div id="ragProgressBar" class="progress-bar"></div>
+                    </div>
+
+                    <div id="classificationResult" class="result" style="display:none;">
+                        <div><strong>Category:</strong> <span id="category">-</span></div>
+                        <div><strong>Confidence:</strong> <span id="confidence">-</span></div>
+                        <div id="reasoning"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHAT SECTION -->
+            <div class="chat-section">
+                <div id="chatWindow" class="chat-window"></div>
+
+                <div class="chat-input-container">
+                    <input type="text" id="questionInput" placeholder="Ask about this document…" autocomplete="off">
+                    <button id="askBtn">Ask</button>
+                </div>
+            </div>
+
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+
+</html>
