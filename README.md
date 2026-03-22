@@ -93,8 +93,7 @@ Users can revisit past chats (stored in SQLite).
 
 # 🗂️ Project Structure
 
-===
-
+![Project Structure](./images/project_structure.png)
 
 ---
 
