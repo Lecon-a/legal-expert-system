@@ -1,5 +1,5 @@
 # 🏛️ DevCareer x Raenest Freelancer Hackathon  
-## **Democratizing Legal Literacy with AI – An AI-Powered Legal Document Understanding Tool**
+## **Democratizing Legal Literacy with AI – An AI-Powered Legal Document Understanding Tool (LegalEase AI)**
 
 ---
 
@@ -123,24 +123,29 @@ Users can revisit past chats (stored in SQLite).
 ```bash
 git clone <repo-url>
 cd legal-expert-system
+```
 
 ### **2. Install Dependencies**
 ```bash
 pip install -r requirements.txt
+```
 
 ### **3. Start Ollama**
 ```bash
 ollama serve
+```
 
 ### **4. Pull Models**
 ```bash
 ollama pull llama3
 ollama pull nomic-embed-text
+```
 
 ### **5. Start Flask Server**
 ```bash 
 cd backend
 python app.py
+```
 
 ### Output in the terminal: Server runs at
 `http://localhost:5000
@@ -194,13 +199,12 @@ Built for:
 DevCareer x Raenest Freelancer Hackathon
 
 Tags:
-```
-#RaenestXDevCareer
-#DevCareer
-#RaenestApp
-#LegalTech
-#AIForGood
-```
+- #RaenestXDevCareer
+- #DevCareer
+- #RaenestApp
+- #LegalTech
+- #AIForGood
+
 
 ## 🙏 Closing Note
 
