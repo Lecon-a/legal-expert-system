@@ -29,7 +29,7 @@ Upload PDFs, DOCX, or text-based legal files.
 
 ![Landing Page Banner](./images/landingpage1.png)
 ![How?](./images/landingpage2.png)
-![Footer](./images/landingpage13.png)
+![Footer](./images/landingpage3.png)
 
 ### **2️⃣ Automatic Legal Document Classification**
 The system identifies document type (NDA, Contract, Employment Agreement, etc.) using embeddings + RAG reasoning.
