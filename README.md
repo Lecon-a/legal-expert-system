@@ -216,7 +216,7 @@ Wish me luck in the final judging! 🙌
 
 # 👤 Author
 
-**Sunday Peter**
+**Sunday P. Afolabi**
 
 ---
 
