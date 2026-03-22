@@ -214,3 +214,34 @@ And now it can help thousands more.
 
 Wish me luck in the final judging! 🙌
 
+# 👤 Author
+
+**Sunday Peter**
+
+---
+
+## 🌐 Connect With Me
+
+- 🐦 Twitter / X: https://x.com/SundayPeterAfo1  
+- 💼 LinkedIn: https://www.linkedin.com/in/sunday-p-afolabi/ 
+- 🧑‍💻 GitHub: https://github.com/Lecon-a  
+- 📧 Email: spait2025@gmail.com  
+
+---
+
+## 🚀 About Me
+
+I’m passionate about building AI-powered solutions that solve real-world problems.  
+This project reflects my commitment to **using technology to make legal knowledge accessible to everyone**, especially those without a legal background.
+
+---
+
+## 💬 Feedback & Collaboration
+
+If you find this project useful or would like to collaborate:
+
+👉 Feel free to reach out via any of the platforms above.  
+I’m open to feedback, partnerships, and opportunities.
+
+---
+
