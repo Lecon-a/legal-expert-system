@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_conn
 
@@ -78,4 +78,4 @@ def login():
 @auth_bp.get("/logout")
 def logout():
     session.clear()
-    return jsonify({"success": True})
+    return redirect("/")
