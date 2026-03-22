@@ -45,7 +45,7 @@ Users can ask:
 - “What happens if I break this clause?”
 
 👉 _Placeholder for Dashboard Screenshot_  
-`![Dashboard](./images/dashboard-placeholder.png)`
+![Dashboard](./images/dashboard.png)
 
 ### **5️⃣ Session-Based Authentication**
 Built with secure Flask session cookies (HTTPOnly, SameSite=Strict).
