@@ -27,7 +27,6 @@ The platform uses **advanced RAG (Retrieval-Augmented Generation)** with **LLaMA
 ### **1️⃣ Upload Any Legal Document**
 Upload PDFs, DOCX, or text-based legal files.
 
-👉 _Placeholder for Landing Page Screenshot_  
 ![Landing Page Banner](./images/landingpage1.png)
 ![How?](./images/landingpage2.png)
 ![Footer](./images/landingpage13.png)
@@ -44,13 +43,11 @@ Users can ask:
 - “Can this be enforced?”
 - “What happens if I break this clause?”
 
-👉 _Placeholder for Dashboard Screenshot_  
 ![Dashboard](./images/dashboard.png)
 
 ### **5️⃣ Session-Based Authentication**
 Built with secure Flask session cookies (HTTPOnly, SameSite=Strict).
 
-👉 _Placeholder for Auth Page Screenshot_  
 ![Login](./images/login.png)
 
 ![Sign Up](./images/registration.png)
