@@ -28,9 +28,9 @@ The platform uses **advanced RAG (Retrieval-Augmented Generation)** with **LLaMA
 Upload PDFs, DOCX, or text-based legal files.
 
 👉 _Placeholder for Landing Page Screenshot_  
-`![Landing Page Banner](./images/landingpage1.png)`
-`![How?](./images/landingpage2.png)`
-`![Footer](./images/landingpage13.png)`
+![Landing Page Banner](./images/landingpage1.png)
+![How?](./images/landingpage2.png)
+![Footer](./images/landingpage13.png)
 
 ### **2️⃣ Automatic Legal Document Classification**
 The system identifies document type (NDA, Contract, Employment Agreement, etc.) using embeddings + RAG reasoning.
@@ -51,8 +51,9 @@ Users can ask:
 Built with secure Flask session cookies (HTTPOnly, SameSite=Strict).
 
 👉 _Placeholder for Auth Page Screenshot_  
-`![Login](./images/login.png)`
-`![Sign Up](./images/registration.png)`
+![Login](./images/login.png)
+
+![Sign Up](./images/registration.png)
 
 ---
 
