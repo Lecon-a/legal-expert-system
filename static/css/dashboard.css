@@ -102,6 +102,34 @@ header {
     width: 40%;
 }
 
+.nav-links {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+}
+
+.nav-links a:hover {
+    color: #3d5afe;
+}
+
+.cta-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 1rem;
+    font-weight: 500;
+    background-color: #020617;
+    color: #fff;
+    border-radius: 23px;
+    border: none;
+}
+
+.cta-btn:hover {
+    cursor: pointer;
+    background-color: #eee;
+    color: #555;
+}
+
 .history-header {
     display: flex;
     justify-content: space-between;
